@@ -1,0 +1,61 @@
+{
+  "brand": "Pet Farewell",
+  "tagline": "Tiễn biệt người bạn nhỏ trong sự trang trọng và yêu thương",
+  "nav": {
+    "services": "Dịch vụ",
+    "pricing": "Bảng giá",
+    "memorial": "Vườn tưởng niệm",
+    "griefSupport": "Đồng hành",
+    "about": "Về chúng tôi",
+    "contact": "Liên hệ",
+    "booking": "Đặt lịch",
+    "login": "Đăng nhập",
+    "dashboard": "Tài khoản"
+  },
+  "cta": {
+    "bookNow": "Đặt lịch ngay",
+    "callNow": "Gọi đường dây 24/7",
+    "learnMore": "Tìm hiểu thêm",
+    "viewServices": "Xem dịch vụ"
+  },
+  "hero": {
+    "title": "Khoảnh khắc tiễn biệt — trang nghiêm như tình yêu bạn dành cho bé",
+    "subtitle": "Dịch vụ hỏa táng riêng, lễ tưởng niệm và đồng hành tâm lý cho gia đình tại Hà Nội & TP.HCM. Phục vụ 24/7.",
+    "trustBadges": {
+      "private": "Hỏa táng riêng 100%",
+      "licensed": "Đầy đủ giấy phép",
+      "support": "Tâm lý chuyên môn"
+    }
+  },
+  "features": {
+    "pickup": {
+      "title": "Xe đón tận nhà",
+      "body": "Đội xe chuyên dụng đến tận nhà 24/7, lễ tân chu đáo, đảm bảo riêng tư tuyệt đối."
+    },
+    "private": {
+      "title": "Hỏa táng riêng",
+      "body": "Mỗi bé một buồng riêng — tro cốt thu hoàn toàn, không pha trộn."
+    },
+    "ceremony": {
+      "title": "Lễ tưởng niệm",
+      "body": "Phòng lễ riêng, livestream HD cho người thân ở xa, lưu khoảnh khắc tiễn biệt."
+    },
+    "urn": {
+      "title": "Hũ tro thủ công",
+      "body": "Hũ gốm Bát Tràng khắc tên, kèm khung ảnh và chứng nhận."
+    },
+    "grief": {
+      "title": "Đồng hành tâm lý",
+      "body": "Chuyên gia tâm lý được đào tạo về mất mát thú cưng, có sẵn 1:1."
+    },
+    "memorial": {
+      "title": "Vườn tưởng niệm",
+      "body": "Không gian riêng để viếng thăm, bia khắc tên, hoa tươi quanh năm."
+    }
+  },
+  "footer": {
+    "rights": "Mọi quyền được bảo lưu",
+    "address": "12 Lý Thường Kiệt, Hoàn Kiếm, Hà Nội · 88 Nguyễn Du, Quận 1, TP.HCM",
+    "hotline": "Hotline 24/7: 1900 0099"
+  }
+}

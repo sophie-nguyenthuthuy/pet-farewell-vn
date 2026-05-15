@@ -1,0 +1,61 @@
+{
+  "brand": "Pet Farewell",
+  "tagline": "A dignified farewell, worthy of the love you shared",
+  "nav": {
+    "services": "Services",
+    "pricing": "Pricing",
+    "memorial": "Memorial Garden",
+    "griefSupport": "Grief Support",
+    "about": "About",
+    "contact": "Contact",
+    "booking": "Book",
+    "login": "Sign in",
+    "dashboard": "Account"
+  },
+  "cta": {
+    "bookNow": "Book now",
+    "callNow": "Call our 24/7 line",
+    "learnMore": "Learn more",
+    "viewServices": "View services"
+  },
+  "hero": {
+    "title": "A farewell as dignified as the love you shared",
+    "subtitle": "Private pet cremation, memorial ceremony, and grief support for families in Hanoi & Ho Chi Minh City. Open 24/7.",
+    "trustBadges": {
+      "private": "100% private cremation",
+      "licensed": "Fully licensed",
+      "support": "Trained counselors"
+    }
+  },
+  "features": {
+    "pickup": {
+      "title": "Home pickup",
+      "body": "Dedicated vehicles, 24/7 dispatch, discrete attendants, absolute privacy."
+    },
+    "private": {
+      "title": "Private cremation",
+      "body": "One pet, one chamber. Every ash returned — never co-mingled."
+    },
+    "ceremony": {
+      "title": "Farewell ceremony",
+      "body": "A private room for goodbye. HD livestream for family far from home."
+    },
+    "urn": {
+      "title": "Handcrafted urns",
+      "body": "Bát Tràng ceramic urns, hand-engraved, with photo frame and certificate."
+    },
+    "grief": {
+      "title": "Grief support",
+      "body": "Licensed counselors trained in pet bereavement — available 1:1."
+    },
+    "memorial": {
+      "title": "Memorial garden",
+      "body": "A quiet place to visit, an engraved headstone, fresh flowers year-round."
+    }
+  },
+  "footer": {
+    "rights": "All rights reserved",
+    "address": "12 Ly Thuong Kiet, Hoan Kiem, Hanoi · 88 Nguyen Du, District 1, HCMC",
+    "hotline": "24/7 Hotline: 1900 0099"
+  }
+}
