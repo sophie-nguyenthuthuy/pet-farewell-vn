@@ -3,125 +3,127 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CreateBookingSchema } from '@/lib/validation';
-import { submitBookingAction } from '@/server/actions/booking';
 import { formatVnd } from '@/lib/utils';
+import { CreateBookingSchema, type CreateBookingInput } from '@/lib/validation';
+import { submitBookingAction } from '@/server/actions/booking';
 import { cn } from '@/lib/utils/cn';
 
-type ServiceOption = {
+export type BookingFormService = {
   id: string;
   slug: string;
   nameVi: string;
   shortVi: string;
   basePriceVnd: number;
-  tiers: Array<{ sizeBand: 'XS' | 'S' | 'M' | 'L' | 'XL'; priceVnd: number }>;
+  tiers?: Array<{ sizeBand: 'XS' | 'S' | 'M' | 'L' | 'XL'; priceVnd: number }>;
 };
 
-const SPECIES = [
-  { value: 'DOG', label: 'Chó' },
-  { value: 'CAT', label: 'Mèo' },
-  { value: 'RABBIT', label: 'Thỏ' },
-  { value: 'BIRD', label: 'Chim' },
-  { value: 'HAMSTER', label: 'Hamster' },
-  { value: 'REPTILE', label: 'Bò sát' },
-  { value: 'OTHER', label: 'Khác' },
-] as const;
+const STEPS = ['Bé yêu', 'Dịch vụ', 'Đón & Lễ', 'Xác nhận'] as const;
 
-const SIZE_BANDS = [
-  { value: 'XS', label: 'Rất nhỏ (< 5kg)' },
-  { value: 'S', label: 'Nhỏ (5–10kg)' },
-  { value: 'M', label: 'Trung bình (10–20kg)' },
-  { value: 'L', label: 'Lớn (20–35kg)' },
-  { value: 'XL', label: 'Rất lớn (> 35kg)' },
-] as const;
+type FormState = {
+  contact: { fullName: string; email: string; phone: string };
+  pet: {
+    name: string;
+    species: 'DOG' | 'CAT' | 'RABBIT' | 'BIRD' | 'HAMSTER' | 'REPTILE' | 'OTHER';
+    sizeBand: 'XS' | 'S' | 'M' | 'L' | 'XL';
+    weightKg?: number;
+    breed?: string;
+    notes?: string;
+  };
+  service: { serviceId: string; addOnIds: string[]; livestream: boolean; griefCounseling: boolean };
+  pickup: {
+    pickupRequired: boolean;
+    pickupAddress?: string;
+    pickupCity?: 'HANOI' | 'HCMC';
+    pickupDistrict?: string;
+    scheduledFor: string;
+  };
+  acceptTerms: boolean;
+};
 
-const CITIES = [
-  { value: 'HANOI', label: 'Hà Nội' },
-  { value: 'HCMC', label: 'TP. Hồ Chí Minh' },
-] as const;
-
-export function BookingForm({ services }: { services: ServiceOption[] }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-
-  const [form, setForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    petName: '',
-    species: 'DOG',
-    breed: '',
-    sizeBand: 'S' as 'XS' | 'S' | 'M' | 'L' | 'XL',
-    weightKg: '',
-    notes: '',
-    serviceId: services[0]?.id ?? '',
-    livestream: false,
-    griefCounseling: false,
-    pickupRequired: true,
-    pickupAddress: '',
-    pickupCity: 'HANOI' as 'HANOI' | 'HCMC',
-    pickupDistrict: '',
-    scheduledFor: '',
+function defaultState(): FormState {
+  return {
+    contact: { fullName: '', email: '', phone: '' },
+    pet: { name: '', species: 'DOG', sizeBand: 'S' },
+    service: { serviceId: '', addOnIds: [], livestream: false, griefCounseling: false },
+    pickup: {
+      pickupRequired: true,
+      pickupCity: 'HCMC',
+      scheduledFor: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    },
     acceptTerms: false,
-  });
+  };
+}
 
-  const selectedService = services.find((s) => s.id === form.serviceId);
-  const tierPrice =
-    selectedService?.tiers.find((t) => t.sizeBand === form.sizeBand)?.priceVnd ??
-    selectedService?.basePriceVnd ??
-    0;
+export function BookingForm({
+  services,
+  addOns = [],
+}: {
+  services: BookingFormService[];
+  addOns?: BookingFormService[];
+}) {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [state, setState] = useState<FormState>(defaultState);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
-  function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const selectedService = services.find((s) => s.id === state.service.serviceId);
+  const tier = selectedService?.tiers?.find((t) => t.sizeBand === state.pet.sizeBand);
+  const estimatedPrice = tier?.priceVnd ?? selectedService?.basePriceVnd ?? 0;
+  const addOnTotal = state.service.addOnIds.reduce(
+    (sum, id) => sum + (addOns.find((a) => a.id === id)?.basePriceVnd ?? 0),
+    0,
+  );
+
+  function validateCurrent(): boolean {
+    const e: Record<string, string> = {};
+    if (step === 0) {
+      if (!state.pet.name) e['pet.name'] = 'Vui lòng nhập tên bé';
+    }
+    if (step === 1) {
+      if (!state.service.serviceId) e['service.serviceId'] = 'Vui lòng chọn dịch vụ';
+    }
+    if (step === 2) {
+      if (state.pickup.pickupRequired && !state.pickup.pickupAddress) {
+        e['pickup.pickupAddress'] = 'Vui lòng nhập địa chỉ đón';
+      }
+      if (!state.pickup.scheduledFor) e['pickup.scheduledFor'] = 'Vui lòng chọn thời gian';
+    }
+    if (step === 3) {
+      if (!state.contact.fullName) e['contact.fullName'] = 'Vui lòng nhập họ tên';
+      if (!/^\S+@\S+\.\S+$/.test(state.contact.email)) e['contact.email'] = 'Email không hợp lệ';
+      if (!/^(?:\+?84|0)\d{9,10}$/.test(state.contact.phone.replace(/\s|-/g, '')))
+        e['contact.phone'] = 'Số điện thoại không hợp lệ';
+      if (!state.acceptTerms) e.acceptTerms = 'Vui lòng đồng ý điều khoản';
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setFieldErrors({});
+  function next() {
+    if (validateCurrent()) setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }
 
-    const payload = {
-      contact: {
-        fullName: form.fullName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-      },
-      pet: {
-        name: form.petName.trim(),
-        species: form.species,
-        breed: form.breed.trim() || null,
-        sizeBand: form.sizeBand,
-        weightKg: form.weightKg ? Number(form.weightKg) : undefined,
-        notes: form.notes.trim() || null,
-      },
-      service: {
-        serviceId: form.serviceId,
-        addOnIds: [],
-        livestream: form.livestream,
-        griefCounseling: form.griefCounseling,
-      },
-      pickup: {
-        pickupRequired: form.pickupRequired,
-        pickupAddress: form.pickupAddress.trim() || null,
-        pickupCity: form.pickupCity,
-        pickupDistrict: form.pickupDistrict.trim() || null,
-        scheduledFor: form.scheduledFor ? new Date(form.scheduledFor) : new Date(),
-      },
-      acceptTerms: form.acceptTerms,
+  function submit() {
+    if (!validateCurrent()) return;
+
+    const payload: CreateBookingInput = {
+      contact: state.contact,
+      pet: { ...state.pet, weightKg: state.pet.weightKg ?? undefined },
+      service: state.service,
+      pickup: { ...state.pickup, scheduledFor: new Date(state.pickup.scheduledFor) },
+      acceptTerms: state.acceptTerms as true,
     };
 
     const parsed = CreateBookingSchema.safeParse(payload);
     if (!parsed.success) {
-      setFieldErrors(parsed.error.flatten().fieldErrors as Record<string, string[]>);
-      setError('Vui lòng kiểm tra lại thông tin');
+      setServerError('Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
       return;
     }
 
@@ -129,318 +131,453 @@ export function BookingForm({ services }: { services: ServiceOption[] }) {
     fd.set('payload', JSON.stringify(parsed.data));
 
     startTransition(async () => {
-      const res = await submitBookingAction({ status: 'idle' }, fd);
-      if (res.status === 'error') {
-        setError(res.message);
-        if (res.fieldErrors) setFieldErrors(res.fieldErrors);
-      } else if (res.status === 'success') {
-        router.push(`/booking/success?code=${res.bookingCode}`);
+      setServerError(null);
+      const result = await submitBookingAction({ status: 'idle' }, fd);
+      if (result.status === 'error') {
+        setServerError(result.message);
+      } else if (result.status === 'success') {
+        router.push(`/booking/success?code=${result.bookingCode}`);
       }
     });
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif">Thông tin liên hệ</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <Field label="Họ và tên" error={fieldErrors['contact.fullName']?.[0]}>
-              <Input
-                value={form.fullName}
-                onChange={(e) => set('fullName', e.target.value)}
-                placeholder="Nguyễn Văn A"
-                required
-              />
-            </Field>
-            <Field label="Email" error={fieldErrors['contact.email']?.[0]}>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => set('email', e.target.value)}
-                placeholder="ban@email.com"
-                required
-              />
-            </Field>
-            <Field label="Số điện thoại" error={fieldErrors['contact.phone']?.[0]}>
-              <Input
-                value={form.phone}
-                onChange={(e) => set('phone', e.target.value)}
-                placeholder="0901234567"
-                required
-              />
-            </Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif">Về bé yêu của bạn</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <Field label="Tên bé" error={fieldErrors['pet.name']?.[0]}>
-              <Input
-                value={form.petName}
-                onChange={(e) => set('petName', e.target.value)}
-                placeholder="Misa"
-                required
-              />
-            </Field>
-            <Field label="Loài">
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.species}
-                onChange={(e) => set('species', e.target.value)}
-              >
-                {SPECIES.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Giống (tuỳ chọn)">
-              <Input value={form.breed} onChange={(e) => set('breed', e.target.value)} />
-            </Field>
-            <Field label="Cân nặng (kg, tuỳ chọn)">
-              <Input
-                inputMode="decimal"
-                value={form.weightKg}
-                onChange={(e) => set('weightKg', e.target.value)}
-              />
-            </Field>
-            <Field label="Kích thước" className="md:col-span-2">
-              <div className="grid grid-cols-5 gap-2">
-                {SIZE_BANDS.map((s) => (
-                  <button
-                    type="button"
-                    key={s.value}
-                    onClick={() => set('sizeBand', s.value)}
-                    className={cn(
-                      'rounded-md border px-2 py-2 text-xs',
-                      form.sizeBand === s.value
-                        ? 'border-primary bg-primary/10 text-foreground'
-                        : 'border-input text-muted-foreground',
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <Field label="Ghi chú cho đội ngũ" className="md:col-span-2">
-              <Textarea
-                value={form.notes}
-                onChange={(e) => set('notes', e.target.value)}
-                placeholder="Ví dụ: bé có vòng cổ kỷ niệm, gia đình muốn giữ lại."
-              />
-            </Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif">Lựa chọn dịch vụ</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-3">
-              {services.map((s) => {
-                const price =
-                  s.tiers.find((t) => t.sizeBand === form.sizeBand)?.priceVnd ?? s.basePriceVnd;
-                const active = form.serviceId === s.id;
-                return (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => set('serviceId', s.id)}
-                    className={cn(
-                      'rounded-lg border p-4 text-left transition',
-                      active ? 'border-primary bg-primary/5' : 'border-input',
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium">{s.nameVi}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{s.shortVi}</p>
-                      </div>
-                      <Badge variant="outline">{formatVnd(price)}</Badge>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="grid gap-2 rounded-md border border-input p-4">
-              <Toggle
-                checked={form.livestream}
-                onChange={(v) => set('livestream', v)}
-                label="Bổ sung livestream lễ tiễn (+ 800.000đ)"
-                hint="Camera HD, đường truyền riêng tư, lưu lại 30 ngày."
-              />
-              <Toggle
-                checked={form.griefCounseling}
-                onChange={(v) => set('griefCounseling', v)}
-                label="Đăng ký buổi đồng hành tâm lý 1:1"
-                hint="Chuyên gia tâm lý sẽ liên hệ trong 24 giờ."
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif">Đón & lịch hẹn</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <Field label="Thành phố">
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.pickupCity}
-                onChange={(e) => set('pickupCity', e.target.value as 'HANOI' | 'HCMC')}
-              >
-                {CITIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Quận / Huyện">
-              <Input
-                value={form.pickupDistrict}
-                onChange={(e) => set('pickupDistrict', e.target.value)}
-                placeholder="VD: Quận 1, Hoàn Kiếm…"
-              />
-            </Field>
-            <Field
-              label="Địa chỉ đón"
-              className="md:col-span-2"
-              error={fieldErrors['pickup.pickupAddress']?.[0]}
+    <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      <div>
+        <ol className="mb-6 flex flex-wrap gap-2 text-sm">
+          {STEPS.map((label, i) => (
+            <li
+              key={label}
+              className={cn(
+                'flex items-center gap-2 rounded-full border px-3 py-1.5',
+                i === step ? 'border-primary text-primary' : 'text-muted-foreground',
+              )}
             >
-              <Input
-                value={form.pickupAddress}
-                onChange={(e) => set('pickupAddress', e.target.value)}
-                placeholder="Số nhà, đường, phường…"
+              <span
+                className={cn(
+                  'grid h-5 w-5 place-items-center rounded-full text-xs',
+                  i <= step ? 'bg-primary text-primary-foreground' : 'bg-muted',
+                )}
+              >
+                {i + 1}
+              </span>
+              {label}
+            </li>
+          ))}
+        </ol>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">{STEPS[step]}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {step === 0 && <PetStep state={state} setState={setState} errors={errors} />}
+            {step === 1 && (
+              <ServiceStep
+                services={services}
+                addOns={addOns}
+                state={state}
+                setState={setState}
+                errors={errors}
               />
-            </Field>
-            <Field
-              label="Thời gian mong muốn"
-              error={fieldErrors['pickup.scheduledFor']?.[0]}
-            >
-              <Input
-                type="datetime-local"
-                value={form.scheduledFor}
-                onChange={(e) => set('scheduledFor', e.target.value)}
-              />
-            </Field>
+            )}
+            {step === 2 && <PickupStep state={state} setState={setState} errors={errors} />}
+            {step === 3 && <ConfirmStep state={state} setState={setState} errors={errors} />}
+
+            {serverError && (
+              <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {serverError}
+              </p>
+            )}
+
+            <div className="flex justify-between pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setStep((s) => Math.max(0, s - 1))}
+                disabled={step === 0 || pending}
+              >
+                Quay lại
+              </Button>
+              {step < STEPS.length - 1 ? (
+                <Button onClick={next}>Tiếp tục</Button>
+              ) : (
+                <Button onClick={submit} disabled={pending}>
+                  {pending ? 'Đang gửi…' : 'Gửi yêu cầu'}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+      <aside className="lg:sticky lg:top-24 lg:h-fit">
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif">Tóm tắt</CardTitle>
+            <CardTitle className="font-serif text-lg">Tóm tắt</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <Row label="Bé" value={state.pet.name || '—'} />
+            <Row label="Cỡ" value={state.pet.sizeBand} />
             <Row label="Dịch vụ" value={selectedService?.nameVi ?? '—'} />
-            <Row label="Kích thước" value={form.sizeBand} />
-            <Row label="Phí dịch vụ" value={formatVnd(tierPrice)} />
-            {form.livestream && <Row label="Livestream" value={formatVnd(800_000)} />}
-            {form.griefCounseling && <Row label="Đồng hành tâm lý" value={formatVnd(1_500_000)} />}
-            <Separator />
-            <Row
-              label="Tổng tạm tính"
-              value={formatVnd(
-                tierPrice +
-                  (form.livestream ? 800_000 : 0) +
-                  (form.griefCounseling ? 1_500_000 : 0),
-              )}
-              bold
-            />
-            <p className="pt-2 text-xs text-muted-foreground">
-              Giá trên là tham khảo. Chi phí cuối cùng được xác nhận sau khi đội ngũ liên hệ.
+            <Row label="Lịch" value={state.pickup.scheduledFor.replace('T', ' ')} />
+            <hr />
+            <Row label="Ước tính" value={formatVnd(estimatedPrice + addOnTotal)} bold />
+            <p className="text-xs text-muted-foreground">
+              Giá có thể thay đổi sau khi đội điều phối xác nhận đón.
             </p>
           </CardContent>
         </Card>
-
-        <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={form.acceptTerms}
-            onChange={(e) => set('acceptTerms', e.target.checked)}
-          />
-          <span>
-            Tôi đã đọc và đồng ý với <a className="underline" href="/terms">điều khoản dịch vụ</a> và
-            <a className="ml-1 underline" href="/privacy">chính sách bảo mật</a>.
-          </span>
-        </label>
-
-        {error && (
-          <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? 'Đang gửi…' : 'Gửi yêu cầu đặt lịch'}
-        </Button>
       </aside>
-    </form>
+    </div>
+  );
+}
+
+function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={bold ? 'font-semibold' : ''}>{value}</span>
+    </div>
   );
 }
 
 function Field({
+  id,
   label,
   error,
   children,
-  className,
 }: {
+  id: string;
   label: string;
   error?: string;
   children: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <div className={cn('space-y-2', className)}>
-      <Label>{label}</Label>
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
 
-function Toggle({
-  checked,
-  onChange,
-  label,
-  hint,
+function PetStep({
+  state,
+  setState,
+  errors,
 }: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  hint?: string;
+  state: FormState;
+  setState: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Record<string, string>;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-muted/40">
-      <input
-        type="checkbox"
-        className="mt-1"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span>
-        <span className="text-sm font-medium">{label}</span>
-        {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
-      </span>
-    </label>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field id="petName" label="Tên bé yêu" error={errors['pet.name']}>
+        <Input
+          id="petName"
+          value={state.pet.name}
+          onChange={(e) => setState({ ...state, pet: { ...state.pet, name: e.target.value } })}
+        />
+      </Field>
+      <Field id="species" label="Loài">
+        <select
+          id="species"
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={state.pet.species}
+          onChange={(e) =>
+            setState({
+              ...state,
+              pet: { ...state.pet, species: e.target.value as FormState['pet']['species'] },
+            })
+          }
+        >
+          <option value="DOG">Chó</option>
+          <option value="CAT">Mèo</option>
+          <option value="RABBIT">Thỏ</option>
+          <option value="BIRD">Chim</option>
+          <option value="HAMSTER">Hamster</option>
+          <option value="REPTILE">Bò sát</option>
+          <option value="OTHER">Khác</option>
+        </select>
+      </Field>
+      <Field id="sizeBand" label="Cân nặng">
+        <select
+          id="sizeBand"
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={state.pet.sizeBand}
+          onChange={(e) =>
+            setState({
+              ...state,
+              pet: { ...state.pet, sizeBand: e.target.value as FormState['pet']['sizeBand'] },
+            })
+          }
+        >
+          <option value="XS">Dưới 5kg</option>
+          <option value="S">5–10kg</option>
+          <option value="M">10–20kg</option>
+          <option value="L">20–35kg</option>
+          <option value="XL">Trên 35kg</option>
+        </select>
+      </Field>
+      <Field id="breed" label="Giống (tuỳ chọn)">
+        <Input
+          id="breed"
+          value={state.pet.breed ?? ''}
+          onChange={(e) => setState({ ...state, pet: { ...state.pet, breed: e.target.value } })}
+        />
+      </Field>
+      <div className="md:col-span-2">
+        <Field id="notes" label="Ghi chú thêm về bé (tuỳ chọn)">
+          <Textarea
+            id="notes"
+            value={state.pet.notes ?? ''}
+            onChange={(e) => setState({ ...state, pet: { ...state.pet, notes: e.target.value } })}
+          />
+        </Field>
+      </div>
+    </div>
   );
 }
 
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+function ServiceStep({
+  services,
+  addOns,
+  state,
+  setState,
+  errors,
+}: {
+  services: BookingFormService[];
+  addOns: BookingFormService[];
+  state: FormState;
+  setState: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Record<string, string>;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn(bold && 'font-semibold')}>{value}</span>
+    <div className="space-y-4">
+      <div className="grid gap-3">
+        {services.map((s) => {
+          const tier = s.tiers?.find((t) => t.sizeBand === state.pet.sizeBand);
+          const price = tier?.priceVnd ?? s.basePriceVnd;
+          const selected = state.service.serviceId === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setState({ ...state, service: { ...state.service, serviceId: s.id } })}
+              className={cn(
+                'rounded-lg border p-4 text-left transition-colors',
+                selected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-serif text-lg">{s.nameVi}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{s.shortVi}</p>
+                </div>
+                <Badge variant="secondary">{formatVnd(price)}</Badge>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {errors['service.serviceId'] && (
+        <p className="text-xs text-destructive">{errors['service.serviceId']}</p>
+      )}
+
+      {addOns.length > 0 && (
+        <div className="space-y-2 border-t pt-4">
+          <p className="text-sm font-medium">Bổ sung (tuỳ chọn)</p>
+          {addOns.map((a) => {
+            const checked = state.service.addOnIds.includes(a.id);
+            return (
+              <label key={a.id} className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() =>
+                    setState({
+                      ...state,
+                      service: {
+                        ...state.service,
+                        addOnIds: checked
+                          ? state.service.addOnIds.filter((id) => id !== a.id)
+                          : [...state.service.addOnIds, a.id],
+                      },
+                    })
+                  }
+                />
+                <span className="flex-1">{a.nameVi}</span>
+                <span className="text-muted-foreground">{formatVnd(a.basePriceVnd)}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PickupStep({
+  state,
+  setState,
+  errors,
+}: {
+  state: FormState;
+  setState: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Record<string, string>;
+}) {
+  return (
+    <div className="space-y-4">
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={state.pickup.pickupRequired}
+          onChange={(e) =>
+            setState({ ...state, pickup: { ...state.pickup, pickupRequired: e.target.checked } })
+          }
+        />
+        Cần xe đón tận nhà (khuyến nghị)
+      </label>
+
+      {state.pickup.pickupRequired && (
+        <>
+          <Field id="city" label="Thành phố">
+            <select
+              id="city"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={state.pickup.pickupCity}
+              onChange={(e) =>
+                setState({
+                  ...state,
+                  pickup: {
+                    ...state.pickup,
+                    pickupCity: e.target.value as FormState['pickup']['pickupCity'],
+                  },
+                })
+              }
+            >
+              <option value="HCMC">TP. Hồ Chí Minh</option>
+              <option value="HANOI">Hà Nội</option>
+            </select>
+          </Field>
+          <Field id="address" label="Địa chỉ đón" error={errors['pickup.pickupAddress']}>
+            <Input
+              id="address"
+              value={state.pickup.pickupAddress ?? ''}
+              onChange={(e) =>
+                setState({ ...state, pickup: { ...state.pickup, pickupAddress: e.target.value } })
+              }
+              placeholder="Số nhà, đường, phường, quận"
+            />
+          </Field>
+        </>
+      )}
+
+      <Field id="when" label="Thời gian dự kiến" error={errors['pickup.scheduledFor']}>
+        <Input
+          id="when"
+          type="datetime-local"
+          value={state.pickup.scheduledFor}
+          onChange={(e) =>
+            setState({ ...state, pickup: { ...state.pickup, scheduledFor: e.target.value } })
+          }
+        />
+      </Field>
+
+      <div className="space-y-2 border-t pt-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.service.livestream}
+            onChange={(e) =>
+              setState({
+                ...state,
+                service: { ...state.service, livestream: e.target.checked },
+              })
+            }
+          />
+          Livestream lễ tiễn cho gia đình ở xa
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={state.service.griefCounseling}
+            onChange={(e) =>
+              setState({
+                ...state,
+                service: { ...state.service, griefCounseling: e.target.checked },
+              })
+            }
+          />
+          Đặt thêm phiên đồng hành tâm lý
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmStep({
+  state,
+  setState,
+  errors,
+}: {
+  state: FormState;
+  setState: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Record<string, string>;
+}) {
+  return (
+    <div className="space-y-4">
+      <Field id="fullName" label="Họ tên" error={errors['contact.fullName']}>
+        <Input
+          id="fullName"
+          value={state.contact.fullName}
+          onChange={(e) =>
+            setState({ ...state, contact: { ...state.contact, fullName: e.target.value } })
+          }
+        />
+      </Field>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field id="email" label="Email" error={errors['contact.email']}>
+          <Input
+            id="email"
+            type="email"
+            value={state.contact.email}
+            onChange={(e) =>
+              setState({ ...state, contact: { ...state.contact, email: e.target.value } })
+            }
+          />
+        </Field>
+        <Field id="phone" label="Số điện thoại" error={errors['contact.phone']}>
+          <Input
+            id="phone"
+            value={state.contact.phone}
+            onChange={(e) =>
+              setState({ ...state, contact: { ...state.contact, phone: e.target.value } })
+            }
+            placeholder="09xxxxxxxx"
+          />
+        </Field>
+      </div>
+
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={state.acceptTerms}
+          onChange={(e) => setState({ ...state, acceptTerms: e.target.checked })}
+        />
+        <span>
+          Tôi đồng ý với{' '}
+          <a href="/terms" className="underline" target="_blank" rel="noreferrer">
+            Điều khoản dịch vụ
+          </a>{' '}
+          và{' '}
+          <a href="/privacy" className="underline" target="_blank" rel="noreferrer">
+            Chính sách quyền riêng tư
+          </a>
+          .
+        </span>
+      </label>
+      {errors.acceptTerms && <p className="text-xs text-destructive">{errors.acceptTerms}</p>}
     </div>
   );
 }

@@ -146,7 +146,6 @@ const faqs = [
 ];
 
 async function main() {
-  // eslint-disable-next-line no-console
   console.warn('Seeding database…');
 
   const adminPassword = await hash('changeme-in-production', 12);
@@ -182,13 +181,11 @@ async function main() {
     });
   }
 
-  // eslint-disable-next-line no-console
   console.warn('Seed complete.');
 }
 
 main()
   .catch((err) => {
-    // eslint-disable-next-line no-console
     console.error(err);
     process.exit(1);
   })

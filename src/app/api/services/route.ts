@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { listServicesByCategory } from '@/server/services/catalog';
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   const services = await listServicesByCategory();

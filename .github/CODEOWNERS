@@ -1,0 +1,7 @@
+* @pet-farewell-vn/maintainers
+
+/prisma/                    @pet-farewell-vn/data
+/src/server/services/       @pet-farewell-vn/backend
+/src/lib/payments/          @pet-farewell-vn/payments
+/.github/workflows/         @pet-farewell-vn/devops
+/docker/                    @pet-farewell-vn/devops

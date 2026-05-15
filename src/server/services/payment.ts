@@ -1,5 +1,6 @@
 import 'server-only';
-import { type Prisma, PaymentProvider, PaymentStatus, BookingStatus } from '@prisma/client';
+import type { PaymentProvider } from '@prisma/client';
+import { type Prisma, PaymentStatus, BookingStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';

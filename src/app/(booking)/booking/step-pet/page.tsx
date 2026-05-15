@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { BookingForm } from '@/components/booking/BookingForm';
+import { BookingForm, type BookingFormService } from '@/components/booking/BookingForm';
 import { listServicesByCategory } from '@/server/services/catalog';
 
 export const metadata: Metadata = {
@@ -8,12 +8,27 @@ export const metadata: Metadata = {
 };
 
 export default async function BookingStepPetPage() {
-  const services = await listServicesByCategory();
-  const visible = services.filter((s) => s.category !== 'ADD_ON' && s.category !== 'GRIEF_COUNSELING');
+  const all = await listServicesByCategory();
+
+  const toOption = (s: (typeof all)[number]): BookingFormService => ({
+    id: s.id,
+    slug: s.slug,
+    nameVi: s.nameVi,
+    shortVi: s.shortVi,
+    basePriceVnd: s.basePriceVnd,
+    tiers: s.tiers.map((t) => ({ sizeBand: t.sizeBand, priceVnd: t.priceVnd })),
+  });
+
+  const services = all
+    .filter((s) => s.category !== 'ADD_ON' && s.category !== 'GRIEF_COUNSELING')
+    .map(toOption);
+  const addOns = all
+    .filter((s) => s.category === 'ADD_ON' || s.category === 'GRIEF_COUNSELING')
+    .map(toOption);
 
   return (
-    <div className="container max-w-6xl">
-      <div className="mb-10 max-w-2xl">
+    <div>
+      <div className="container max-w-3xl pb-4">
         <p className="text-sm uppercase tracking-wider text-muted-foreground">Đặt lịch</p>
         <h1 className="mt-2 font-serif text-3xl md:text-4xl">
           Hãy kể cho chúng tôi nghe về bé yêu của bạn
@@ -23,16 +38,7 @@ export default async function BookingStepPetPage() {
         </p>
       </div>
 
-      <BookingForm
-        services={visible.map((s) => ({
-          id: s.id,
-          slug: s.slug,
-          nameVi: s.nameVi,
-          shortVi: s.shortVi,
-          basePriceVnd: s.basePriceVnd,
-          tiers: s.tiers.map((t) => ({ sizeBand: t.sizeBand, priceVnd: t.priceVnd })),
-        }))}
-      />
+      <BookingForm services={services} addOns={addOns} />
     </div>
   );
 }

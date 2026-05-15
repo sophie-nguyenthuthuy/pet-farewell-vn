@@ -2,15 +2,32 @@ import type { MetadataRoute } from 'next';
 import { env } from '@/lib/env';
 import { prisma } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
-  const staticRoutes = ['', '/services', '/pricing', '/memorial', '/grief-support', '/about', '/contact'];
+  const staticRoutes = [
+    '',
+    '/services',
+    '/pricing',
+    '/memorial',
+    '/grief-support',
+    '/about',
+    '/contact',
+  ];
 
-  const memorials = await prisma.memorial.findMany({
-    where: { isPublic: true },
-    select: { slug: true, updatedAt: true },
-    take: 1000,
-  });
+  // DB may not be reachable at build time. Be defensive — sitemap still emits static routes.
+  let memorials: Array<{ slug: string; updatedAt: Date }> = [];
+  try {
+    memorials = await prisma.memorial.findMany({
+      where: { isPublic: true },
+      select: { slug: true, updatedAt: true },
+      take: 1000,
+    });
+  } catch {
+    memorials = [];
+  }
 
   return [
     ...staticRoutes.map((r) => ({

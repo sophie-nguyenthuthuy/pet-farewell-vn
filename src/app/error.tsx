@@ -11,7 +11,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error(error);
   }, [error]);
 
@@ -22,7 +21,9 @@ export default function GlobalError({
         Chúng tôi rất tiếc vì sự bất tiện. Vui lòng thử lại — nếu vẫn không được, hãy gọi hotline
         1900 0099.
       </p>
-      <Button onClick={reset} className="mt-6">Thử lại</Button>
+      <Button onClick={reset} className="mt-6">
+        Thử lại
+      </Button>
     </div>
   );
 }

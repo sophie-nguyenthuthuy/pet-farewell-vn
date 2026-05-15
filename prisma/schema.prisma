@@ -2,8 +2,7 @@
 // Premium pet cremation, memorial, and grief-support service.
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["fullTextSearchPostgres"]
+  provider = "prisma-client-js"
 }
 
 datasource db {

@@ -1,5 +1,6 @@
 import 'server-only';
-import { Prisma, BookingStatus } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { BookingStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
@@ -54,10 +55,7 @@ export async function transitionStatus(
         actorId,
       },
     });
-    logger.info(
-      { bookingId, from: booking.status, to: next, actorId },
-      'booking_status_changed',
-    );
+    logger.info({ bookingId, from: booking.status, to: next, actorId }, 'booking_status_changed');
     return updated;
   });
 }
