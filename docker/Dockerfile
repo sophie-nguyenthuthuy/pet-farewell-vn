@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7-labs
 # ---------- Builder ----------
-FROM node:20-bookworm-slim AS builder
+FROM node:25-bookworm-slim AS builder
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
@@ -18,7 +18,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm db:generate && pnpm build
 
 # ---------- Runner ----------
-FROM node:20-bookworm-slim AS runner
+FROM node:25-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
